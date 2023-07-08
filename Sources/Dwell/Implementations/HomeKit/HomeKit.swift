@@ -6,43 +6,41 @@
 //
 
 import HomeKit
+import SwiftUI
 
-enum HomeKitError : Error {
+public enum HomeKitError : Error {
     case notAuthorized(status: HMHomeManagerAuthorizationStatus)
 }
 
-public struct HomeKit {
+@available(macCatalyst 17, iOS 17, tvOS 17, *)
+fileprivate let _homeKit : HomeKit = {
+    return HomeKit()
+}()
+
+@available(macCatalyst 17, iOS 17, tvOS 17, *)
+@Observable public class HomeKit : Platform {
+    public static var shared : Self {
+        return _homeKit as! Self
+    }
     
-    static internal var delegate : HomeKitDelegate? = nil
+    internal let delegate : HomeKitDelegate
     
-    public static func home(named name:String) async throws -> Home?{
-        guard let delegate else {
-            delegate = HomeKitDelegate()
-            try await Task.sleep(for: .seconds(1))
-            return try await home(named: name)
+    public var authorized : Bool {
+        return delegate.authorizationStatus?.contains(.authorized) ?? false
+    }
+    
+    public var initializaed : Bool {
+        return authorized && delegate.homesUpdatedOnce
+    }
+    
+    public var homes : [Home] {
+        return delegate.manager.homes.map{
+            HomeKitHome(implementedBy: $0)
         }
-     
-        guard let authorizationStatus = delegate.authorizationStatus else {
-            try await Task.sleep(for: .seconds(1))
-            return try await home(named: name)
-        }
-        
-        if !authorizationStatus.contains(.authorized) {
-            throw HomeKitError.notAuthorized(status: authorizationStatus)
-        }
-        
-        guard delegate.homesUpdatedOnce else {
-            try await Task.sleep(for: .seconds(1))
-            return try await home(named: name)
-        }
-        
-        for home in delegate.manager.homes {
-            if home.name == name {
-                return Implementation<HMHome>(implementedBy: home)
-            }
-        }
-        
-        return nil
+    }
+    
+    fileprivate init(){
+        delegate = HomeKitDelegate()
     }
 }
 
