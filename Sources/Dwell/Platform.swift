@@ -7,6 +7,11 @@
 
 public protocol Platform {
     static var shared : Self { get }
+    
+    var authorized : Bool { get }
+    
+    var initialized : Bool { get }
+    
     var homes : [Home] { get }
 }
 

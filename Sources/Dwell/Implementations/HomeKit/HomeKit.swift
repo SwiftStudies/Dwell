@@ -25,18 +25,22 @@ fileprivate let _homeKit : HomeKit = {
     
     internal let delegate : HomeKitDelegate
     
+    fileprivate var _authorized = false
+
     public var authorized : Bool {
-        return delegate.authorizationStatus?.contains(.authorized) ?? false
+        return _authorized
     }
     
-    public var initializaed : Bool {
-        return authorized && delegate.homesUpdatedOnce
+    fileprivate var _initialized = false
+    
+    public var initialized : Bool {
+        return authorized || _initialized
     }
+    
+    fileprivate var _homes = [Home]()
     
     public var homes : [Home] {
-        return delegate.manager.homes.map{
-            HomeKitHome(implementedBy: $0)
-        }
+        return _homes
     }
     
     fileprivate init(){
@@ -46,11 +50,7 @@ fileprivate let _homeKit : HomeKit = {
 
 class HomeKitDelegate : NSObject, HMHomeManagerDelegate {
     let manager : HMHomeManager
-    
-    var authorizationStatus : HMHomeManagerAuthorizationStatus?
-    
-    var homesUpdatedOnce = false
-    
+
     override init(){
         manager = HMHomeManager()
         super.init()
@@ -59,11 +59,18 @@ class HomeKitDelegate : NSObject, HMHomeManagerDelegate {
     }
     
     func homeManager(_ manager: HMHomeManager, didUpdate status: HMHomeManagerAuthorizationStatus) {
-        authorizationStatus = status
+        _homeKit._authorized = status.contains(.authorized)
     }
     
     func homeManagerDidUpdateHomes(_ manager: HMHomeManager) {
-        homesUpdatedOnce = true
+        _homeKit._initialized = true
+        _homeKit._homes = manager.homes.sorted(by: { lhs, rhs in
+            if lhs.isPrimary { return true }
+            if rhs.isPrimary { return false }
+            return lhs.name < rhs.name
+        }).map{
+            HomeKitHome(implementedBy: $0)
+        }
     }
 }
 
